@@ -1,0 +1,11 @@
+{
+  "name": "weiyiacc-claude-plugins-fork",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Fork of derekspelledcorrectly/claude-plugins for pi-cli discovery. Original is Claude Code plugin format; this shim exposes skills via pi.skills field.",
+  "pi": {
+    "skills": [
+      "./plugins/chezmoi/skills"
+    ]
+  }
+}

@@ -14,6 +14,10 @@ Automatically intercepts `Edit` and `Write` tool calls targeting files under `$H
 
 The guard does NOT block edits (exit 0). It warns strongly and instructs Claude to ask the user for confirmation.
 
+### Chezmoi Preflight (Skill)
+
+Lightweight gate skill that activates whenever Claude is about to edit a file under `~/.<something>` (e.g. `~/.claude/settings.json`, `~/.zshrc`, `~/.gitconfig`). Runs a single `chezmoi source-path` check — if the file is managed, hands off to `chezmoi-expert`; otherwise exits silently. Catches the case earlier than the PreToolUse hook, before the write tool is even invoked.
+
 ### Chezmoi Expert (Skill)
 
 Comprehensive chezmoi knowledge that activates when discussing dotfile management:
@@ -74,6 +78,8 @@ chezmoi/
 │   ├── diff-plist.sh
 │   └── reconcile-status.sh
 ├── skills/
+│   ├── chezmoi-preflight/
+│   │   └── SKILL.md
 │   └── chezmoi-expert/
 │       ├── SKILL.md
 │       └── references/

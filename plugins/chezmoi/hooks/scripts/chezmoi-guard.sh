@@ -46,20 +46,25 @@ SOURCE_PATH=$(chezmoi source-path "$FILE_PATH" 2>/dev/null || echo "")
 if [[ -n "$SOURCE_PATH" ]]; then
 	# File IS managed by chezmoi -- warn strongly
 	cat <<WARN
-CHEZMOI GUARD: The file you are about to edit is managed by chezmoi!
+CHEZMOI GUARD: The file you are about to edit is managed by chezmoi.
 
-  Target file: $FILE_PATH
-  Source file: $SOURCE_PATH
+  Target (live) file: $FILE_PATH
+  Source file:        $SOURCE_PATH
 
-Editing the target file directly means changes will be OVERWRITTEN on the
-next "chezmoi apply". You should edit the chezmoi source file instead.
+The target you requested is the WRONG file to edit. Any changes you write
+to it will be OVERWRITTEN on the next "chezmoi apply", creating silent
+source/live drift that the user has to reconcile by hand.
 
-ACTION REQUIRED: Before proceeding, you MUST ask the user which they prefer:
-  1. Edit the source file at: $SOURCE_PATH
-     (then remind them to run "chezmoi apply" afterward)
-  2. Edit the target file directly (the user accepts the risk of overwrite)
+REQUIRED CORRECTION:
+  1. Abandon the pending edit to the live target.
+  2. Edit the source file at: $SOURCE_PATH
+     (if the source path ends in .tmpl, Go template syntax applies)
+  3. After editing, run: chezmoi apply "$FILE_PATH"
 
-Do NOT silently proceed with editing the target file.
+If you believe a direct edit of the live file is genuinely necessary
+(e.g., debugging template rendering), STOP and ask the user explicitly
+for permission first. Do not treat this warning as optional guidance.
+Do not silently proceed with the target-file edit.
 WARN
 	exit 0
 fi

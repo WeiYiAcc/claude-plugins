@@ -22,18 +22,15 @@ chezmoi diff
 
 ## Sandbox Considerations
 
-Chezmoi commands that read or write the state database (`chezmoistate.boltdb`) or modify target files will fail inside the Claude Code sandbox. These commands **require `dangerouslyDisableSandbox: true`**:
+Chezmoi writes its state database at `~/.config/chezmoi/chezmoistate.boltdb`. For the Claude Code sandbox, that file path needs to be in `sandbox.filesystem.allowWrite` so that `chezmoi apply`, `chezmoi re-add`, `chezmoi update`, and `chezmoi state delete` work without bypassing the sandbox.
 
-- `chezmoi apply`, `chezmoi re-add`, `chezmoi update`
-- `chezmoi state dump`, `chezmoi state delete`
+If a chezmoi command fails with `operation not permitted` on `chezmoistate.boltdb`, **fix the allowlist, don't disable the sandbox**. Reflexive `dangerouslyDisableSandbox: true` retries normalize sandbox bypass.
 
-Read-only commands generally work inside the sandbox:
+Read-only commands work inside the sandbox:
 - `chezmoi status`, `chezmoi diff`, `chezmoi cat`
 - `chezmoi managed`, `chezmoi source-path`, `chezmoi data`
 
-When a chezmoi command fails with "operation not permitted" on `chezmoistate.boltdb`, immediately retry with `dangerouslyDisableSandbox: true`.
-
-**WARNING**: The sandbox overrides environment variables like `TMPDIR`. Templates using `{{ env "TMPDIR" }}` will render with sandbox values, causing **false positive drift**. For accurate drift detection, run ALL chezmoi commands outside the sandbox.
+**WARNING**: The sandbox overrides environment variables like `TMPDIR`. Templates using `{{ env "TMPDIR" }}` will render with sandbox values, causing **false positive drift**. For accurate drift detection, run chezmoi commands outside the sandbox. This is a templating concern, not a write-permission issue.
 
 ## Reading Chezmoi Diffs Correctly
 

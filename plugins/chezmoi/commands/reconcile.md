@@ -102,7 +102,7 @@ After showing the diff, use AskUserQuestion to present the appropriate options f
 
 **For TEMPLATE files** (tagged `[TEMPLATE]` in script output):
 
-Do NOT offer `re-add` as an option. `chezmoi re-add` on a template file replaces the `.tmpl` source with the literal target content, stripping all Go template directives (`{{ if }}`, `{{ .data }}`, etc.). This destroys the template.
+Do NOT offer `re-add` as an option. Depending on the chezmoi version, `chezmoi re-add` on a template either replaces the `.tmpl` source with the literal target content (stripping all Go template directives like `{{ if }}` / `{{ .data }}`) or silently refuses with no stdout, no stderr, and exit 0. Either way it is the wrong tool for templates.
 
 Instead, offer:
 - **edit template**: Open the `.tmpl` source file so the user (or you) can manually integrate the live changes into the template while preserving template logic. Show both the template source and the diff to make this easy.
@@ -142,6 +142,7 @@ If there are no uncommitted changes, confirm reconciliation is fully complete.
 
 - **Sandbox**: ALL chezmoi commands in this workflow should use `dangerouslyDisableSandbox: true` to avoid environment variable contamination. The sandbox overrides `TMPDIR` (and potentially other env vars), which causes templates using `{{ env "TMPDIR" }}` to render with sandbox paths instead of real system paths. This creates false positive drift that does not exist outside the sandbox. Both read commands (`chezmoi diff`, `chezmoi cat`, `chezmoi status`) and write commands (`chezmoi apply`, `chezmoi re-add`) are affected.
 - **Plist files**: Always run the plist diff helper (`diff-plist.sh`) and show the output BEFORE asking the user what to do. The user needs to see what changed to make an informed decision.
-- For `.tmpl` source files, NEVER offer `chezmoi re-add` as an option. It replaces the template with literal target content, destroying all template directives. The script now tags these files as `[TEMPLATE]` -- use the template-specific resolution options in Step 2b instead.
+- For `.tmpl` source files, NEVER offer `chezmoi re-add` as an option. Depending on chezmoi version, it either strips template directives or silently no-ops with no error signal. The script tags these files as `[TEMPLATE]` -- use the template-specific resolution options in Step 2b instead.
+- **Silent no-op detection (defense in depth):** if you ever do run `chezmoi re-add <file>` and it exits 0 with no stdout, no stderr, an unchanged `chezmoi diff`, AND a clean `git status` in the source repo, the file is almost certainly template-managed and chezmoi silently refused the operation. Confirm with `chezmoi source-path <target>` -- if it ends in `.tmpl`, switch to the template-edit workflow. Do not retry `re-add` and do not report success.
 - Never run `chezmoi apply` without `--force` in this workflow -- the non-interactive shell will hang on the TTY prompt.
 - If the user says "re-add all" or "apply all", batch the operations but still show a summary of what will change.

@@ -51,16 +51,20 @@ if [[ "${TMPDIR:-}" == */tmp/claude* || "${TMPDIR:-}" == */private/tmp/claude* ]
 	printf "\n"
 fi
 
-# --- Pre-scan: Count template-managed files ---
-TMPL_COUNT=0
+# --- Pre-scan: Index template-managed files ---
+# Built once with absolute paths so both the visible-drift loop and the
+# silent-drift loop can do reliable lookups without re-querying chezmoi.
+TMPL_TARGETS=()
 
 while IFS= read -r target; do
 	[[ -z "$target" ]] && continue
 	src=$(chezmoi source-path "$target" 2>/dev/null || true)
 	if [[ "$src" == *.tmpl ]]; then
-		((TMPL_COUNT++)) || true
+		TMPL_TARGETS+=("$target")
 	fi
 done < <(chezmoi managed --include=files --path-style=absolute 2>/dev/null)
+
+TMPL_COUNT=${#TMPL_TARGETS[@]}
 
 if $VERBOSE; then
 	printf '%s[0/2] Template index: %s template-managed file(s)%s\n' "$BOLD" "$TMPL_COUNT" "$RESET"
@@ -84,12 +88,21 @@ if [[ -n "$STATUS_OUTPUT" ]]; then
 
 		is_tmpl=false
 		tmpl_src=""
-		src_check=$(chezmoi source-path "$path" 2>/dev/null || true)
-		if [[ "$src_check" == *.tmpl ]]; then
-			is_tmpl=true
-			tmpl_src="$src_check"
-			VISIBLE_TMPL+=("$path")
-		fi
+		# chezmoi status emits paths relative to the destination dir, but
+		# `chezmoi source-path` resolves bare relative paths against CWD,
+		# which is almost never $HOME when this script runs. So normalize
+		# to an absolute path and look up in the pre-built template index
+		# instead of re-querying source-path here.
+		abs_path="$path"
+		[[ "$abs_path" != /* ]] && abs_path="$HOME/$path"
+		for t in "${TMPL_TARGETS[@]+"${TMPL_TARGETS[@]}"}"; do
+			if [[ "$t" == "$abs_path" ]]; then
+				is_tmpl=true
+				tmpl_src=$(chezmoi source-path "$t" 2>/dev/null || echo "")
+				VISIBLE_TMPL+=("$path")
+				break
+			fi
+		done
 
 		direction=""
 		if [[ "$col1" == "R" || "$col2" == "R" ]]; then
@@ -128,7 +141,7 @@ if [[ -n "$STATUS_OUTPUT" ]]; then
 			printf "           %s\n" "$direction"
 			if $is_tmpl; then
 				printf '           %ssource: %s%s\n' "$CYAN" "$tmpl_src" "$RESET"
-				printf '%s\n' "           ${CYAN}re-add will STRIP template directives -- edit template manually instead${RESET}"
+				printf '%s\n' "           ${CYAN}re-add on a template is unsafe (strips directives or silently no-ops) -- edit template manually instead${RESET}"
 			fi
 		fi
 	done <<<"$STATUS_OUTPUT"
@@ -147,7 +160,7 @@ fi
 if [[ ${#VISIBLE_TMPL[@]} -gt 0 ]]; then
 	printf "\n"
 	printf '  %s%sNote:%s %s drifted file(s) are %stemplate-managed%s.\n' "$CYAN" "$BOLD" "$RESET" "${#VISIBLE_TMPL[@]}" "$CYAN" "$RESET"
-	printf '%s\n' "  ${CYAN}Do NOT use 'chezmoi re-add' on these -- it will strip template directives.${RESET}"
+	printf '%s\n' "  ${CYAN}Do NOT use 'chezmoi re-add' on these -- it strips directives or silently no-ops.${RESET}"
 	printf '%s\n' "  ${CYAN}Instead, edit the .tmpl source file to incorporate the live changes.${RESET}"
 fi
 
@@ -164,14 +177,6 @@ printf "\n"
 printf '%s\n' "${BOLD}[2/2] Checking template entry states (silent drift)...${RESET}"
 
 STATE_JSON=$(chezmoi state dump 2>/dev/null)
-
-TMPL_TARGETS=()
-while IFS= read -r target; do
-	src=$(chezmoi source-path "$target" 2>/dev/null || true)
-	if [[ "$src" == *.tmpl ]]; then
-		TMPL_TARGETS+=("$target")
-	fi
-done < <(chezmoi managed --include=files --path-style=absolute 2>/dev/null)
 
 if [[ ${#TMPL_TARGETS[@]} -eq 0 ]]; then
 	printf "  No template-managed files found\n"
@@ -219,8 +224,8 @@ else
 				printf '           entry state:  %s...\n' "${entry_hash:0:16}"
 				printf '           actual file:  %s...\n' "${actual_hash:0:16}"
 				printf "           Target was edited outside chezmoi but matches rendered template.\n"
-				printf "           Run: chezmoi re-add %s  (to accept target changes)\n" "$target"
-				printf "           Or:  chezmoi apply --force %s  (to overwrite target)\n" "$target"
+				printf "           Edit the .tmpl source to incorporate the live changes.\n"
+				printf "           Or:  chezmoi apply --force %s  (overwrite target, discarding live changes)\n" "$target"
 			fi
 		else
 			if $VERBOSE; then
@@ -257,7 +262,7 @@ if $DRIFT_FOUND; then
 	if [[ ${#VISIBLE_TMPL[@]} -gt 0 || ${#SILENT_DRIFT[@]} -gt 0 ]]; then
 		printf 'To resolve %stemplate%s drift:\n' "$CYAN" "$RESET"
 		printf "  Edit the .tmpl source file directly to incorporate live changes.\n"
-		printf "  Do NOT use 'chezmoi re-add' -- it strips template directives.\n"
+		printf "  Do NOT use 'chezmoi re-add' -- it strips directives or silently no-ops on templates.\n"
 		printf "  chezmoi apply --force <file>    # overwrite target with source (discards live changes)\n"
 		printf "\n"
 	fi

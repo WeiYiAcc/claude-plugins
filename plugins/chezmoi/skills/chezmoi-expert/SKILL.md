@@ -152,7 +152,7 @@ chezmoi state dump             # Compare entryState SHA256 vs actual
 shasum -a 256 <target>         # Compare hashes
 ```
 
-**Do NOT use `chezmoi re-add` on template-managed files** -- it strips template directives. Edit the `.tmpl` source file directly instead.
+**Do NOT use `chezmoi re-add` on template-managed files** -- depending on chezmoi version it either strips template directives or silently no-ops (exit 0, no stdout/stderr, no source change). Edit the `.tmpl` source file directly instead.
 
 ## Helper Scripts
 

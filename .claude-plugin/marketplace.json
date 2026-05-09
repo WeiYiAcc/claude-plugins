@@ -27,7 +27,7 @@
       "name": "iterm-notifs",
       "source": "./plugins/iterm-notifs",
       "description": "iTerm2-native Claude Code notifications: custom OSC 9 banners with project name, dock attention, and per-session waiting state via OSC 1337 user variables. Pairs with an iTerm2 AutoLaunch Python script for sound, voice, and hotkey cycling.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "keywords": ["iterm2", "notifications", "macos", "tmux", "ssh"]
     }
   ]

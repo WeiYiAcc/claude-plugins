@@ -7,17 +7,29 @@
 # user.claudeWaitingSince across all sessions. This keeps hooks
 # identical on local Mac and on remote SSH+tmux sessions.
 #
-# IMPORTANT: all emits target /dev/tty rather than stdout, because
-# Claude Code captures hook stdout for its own use. Writing to /dev/tty
-# bypasses that capture and reaches the actual terminal that iTerm2
-# controls. Without this, the OSC escapes get eaten and never affect
-# the iTerm2 session.
+# IMPORTANT: emits target the user's controlling TTY rather than stdout,
+# because Claude Code captures hook stdout for its own use. Without this,
+# the OSC escapes get eaten and never affect the iTerm2 session.
 #
-# Tests can override the target by setting ITERM_NOTIFS_TTY to a file
-# path; primitives will write there instead.
+# /dev/tty doesn't work because hook subprocesses don't inherit a
+# controlling terminal from Claude Code. We fall back through env vars
+# the user's shell may have exported. See README for setup details.
 
 _notify_target() {
-	printf '%s' "${ITERM_NOTIFS_TTY:-/dev/tty}"
+	# Test override (set by bats tests).
+	if [[ -n "${ITERM_NOTIFS_TTY:-}" ]]; then
+		printf '%s' "$ITERM_NOTIFS_TTY"
+		return
+	fi
+	# Required: user exports this in their shell rc (see README).
+	# Without it, hooks have no way to find the right PTY device.
+	if [[ -n "${CLAUDE_TTY:-}" ]]; then
+		printf '%s' "$CLAUDE_TTY"
+		return
+	fi
+	# Last resort. Fails when hook has no controlling terminal (the
+	# common case in Claude Code) but works in interactive shells.
+	printf '/dev/tty'
 }
 
 # OSC 9: post a banner notification with custom body text.

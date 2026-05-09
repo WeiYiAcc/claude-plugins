@@ -74,8 +74,37 @@ A reference implementation lives in Derek's chezmoi dotfiles at
    System Settings → Focus → [each mode] → Apps & People → Allow iTerm2.
 
 3. **Bind a hotkey for cycling**: iTerm2 → Settings → Keys → Key Bindings
-   → `+` → record shortcut (e.g. `Cmd+Shift+J`) → Action: "Invoke Script
-   Function" → `jump_to_oldest_waiting()`.
+   → `+` → record shortcut (e.g. `⌘⇧J`) → Action: "Invoke Script
+   Function" → `cycle_waiting()`. Same for `⌘⇧K` → `clear_waiting()`.
+
+4. **Tell hooks where to write OSC sequences.** Hook subprocesses run
+   without a controlling terminal, so `/dev/tty` doesn't work and Claude
+   Code captures stdout. Hooks need a path to your interactive shell's
+   PTY device. Add this to your shell rc (`.zshrc`, `.bashrc`):
+
+   ```sh
+   export CLAUDE_TTY=$(tty 2>/dev/null)
+   ```
+
+   This is required — without it, the plugin has no way to know which
+   terminal device to write to, and the hooks become silent no-ops.
+
+5. **If you have Claude Code's sandbox enabled**, allow writes to PTY
+   devices in your `~/.claude/settings.json`:
+
+   ```json
+   {
+     "sandbox": {
+       "filesystem": {
+         "allowWrite": ["/dev/ttys*"]
+       }
+     }
+   }
+   ```
+
+   Without this, the OSC writes silently fail (the hook script catches
+   the error to keep the hook chain alive). If you don't use sandbox,
+   skip this step.
 
 ## Why this is iTerm2-only
 

@@ -3,8 +3,14 @@
   "version": "1.1.1",
   "description": "Chezmoi-aware dotfile editing guard and expertise. Prevents direct edits to chezmoi-managed files and provides comprehensive chezmoi workflow guidance.",
   "author": {
-    "name": "Derek",
-    "email": "noreply@example.com"
+    "name": "Derek Shockey"
   },
-  "keywords": ["chezmoi", "dotfiles", "configuration", "guard"]
+  "homepage": "https://github.com/derekspelledcorrectly/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "chezmoi",
+    "dotfiles",
+    "configuration",
+    "guard"
+  ]
 }

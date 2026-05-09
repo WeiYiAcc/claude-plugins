@@ -1,0 +1,29 @@
+{
+  "description": "iTerm2-native Claude Code notifications via OSC 9 banners, OSC 1337 user variables, and dock attention.",
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/notification.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/user-prompt-submit.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

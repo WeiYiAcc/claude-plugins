@@ -31,6 +31,43 @@ notify_tty_read() {
 	cat "$ITERM_NOTIFS_TTY" 2>/dev/null
 }
 
+# Set up an isolated session-map + lock file under BATS_TEST_TMPDIR.
+# notify.sh's _session_map_lookup honors the env overrides
+# ITERM_NOTIFS_SESSION_MAP and ITERM_NOTIFS_LOCK so tests don't touch
+# the real ~/.claude/run/ paths.
+#
+# Writes the lock with a live PID (the bats process itself, $$)
+# so the daemon-liveness check passes by default. Individual tests
+# can override `ITERM_NOTIFS_LOCK` to a file with a dead PID to
+# exercise the failure paths.
+notify_session_map_setup() {
+	local dir="${BATS_TEST_TMPDIR:-/tmp}/iterm-notifs-map-$$"
+	mkdir -p "$dir"
+	export ITERM_NOTIFS_SESSION_MAP="$dir/sessions.txt"
+	export ITERM_NOTIFS_LOCK="$dir/daemon.lock"
+	: >"$ITERM_NOTIFS_SESSION_MAP"
+	printf '%d\n' "$$" >"$ITERM_NOTIFS_LOCK"
+}
+
+# Add a session-map entry with the given key (UUID or full session_id),
+# tty path, and pid. Caller controls liveness by passing $$ (live) or
+# a guaranteed-dead pid via `notify_dead_pid`.
+notify_session_map_add() {
+	local key="$1" tty="$2" pid="$3"
+	printf '%s=%s:%s\n' "$key" "$tty" "$pid" >>"$ITERM_NOTIFS_SESSION_MAP"
+}
+
+# Spawn a short-lived process, capture its pid, wait for it to exit.
+# Returns a pid that is guaranteed to be dead by the time the test
+# uses it. Useful for exercising `kill -0` failure paths.
+notify_dead_pid() {
+	local pid
+	(true) &
+	pid=$!
+	wait "$pid" 2>/dev/null
+	printf '%d' "$pid"
+}
+
 # Decode an iTerm2 SetUserVar value (base64) back to plaintext.
 # Usage: decode_setuservar "<base64-string>"
 decode_setuservar() {

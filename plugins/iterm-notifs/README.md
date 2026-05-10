@@ -73,21 +73,33 @@ A reference implementation lives in Derek's chezmoi dotfiles at
 2. **Allowlist iTerm2 in your Focus modes** so banners break through DND:
    System Settings → Focus → [each mode] → Apps & People → Allow iTerm2.
 
-3. **Bind a hotkey for cycling**: iTerm2 → Settings → Keys → Key Bindings
+3. **Bind hotkeys for cycling**: iTerm2 → Settings → Keys → Key Bindings
    → `+` → record shortcut (e.g. `⌘⇧J`) → Action: "Invoke Script
    Function" → `cycle_waiting()`. Same for `⌘⇧K` → `clear_waiting()`.
 
-4. **Tell hooks where to write OSC sequences.** Hook subprocesses run
-   without a controlling terminal, so `/dev/tty` doesn't work and Claude
-   Code captures stdout. Hooks need a path to your interactive shell's
-   PTY device. Add this to your shell rc (`.zshrc`, `.bashrc`):
+4. **(Local Mac, zero-config)** — Hook discovery for the right PTY
+   device is automatic via the daemon-maintained session map. Nothing
+   to set up beyond installing and running the AutoLaunch script. The
+   daemon writes a `session_id → tty` map to
+   `~/.claude/run/iterm-notifs/sessions.txt` on startup and on each
+   session create/terminate event; the hook reads it on each fire.
+
+   **Minimum iTerm2 version: 3.4.x** (for `SessionTerminationMonitor`).
+   Older iTerm2 will see an error in
+   `~/.claude/logs/iterm2-claude-cycle.log` at startup.
+
+5. **(Remote SSH+tmux only)** — On remote machines (where the local-Mac
+   daemon and map file are unreachable), hooks need the user to export
+   `CLAUDE_TTY` in the remote shell rc:
 
    ```sh
-   export CLAUDE_TTY=$(tty 2>/dev/null)
+   # In remote .zshrc / .bashrc
+   [[ -t 0 ]] && export CLAUDE_TTY=$(tty)
    ```
 
-   This is required — without it, the plugin has no way to know which
-   terminal device to write to, and the hooks become silent no-ops.
+   The hook writes OSC sequences to that PTY; tmux's `allow-passthrough`
+   forwards them back to the local iTerm2. Without `CLAUDE_TTY`, remote
+   hook events silently fail.
 
 5. **If you have Claude Code's sandbox enabled**, allow writes to PTY
    devices in your `~/.claude/settings.json`:

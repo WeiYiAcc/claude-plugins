@@ -15,14 +15,71 @@
 # controlling terminal from Claude Code. We fall back through env vars
 # the user's shell may have exported. See README for setup details.
 
+# Look up this session's TTY in the daemon-maintained session map.
+# The map is written by the iTerm2 AutoLaunch script (claude_cycle.py)
+# at ~/.claude/run/iterm-notifs/sessions.txt with one line per session
+# in the form "<session_id>=<tty>:<pid>". The hook reads its inherited
+# $ITERM_SESSION_ID, looks up the entry, and validates two liveness
+# invariants before trusting it:
+#   1) Daemon liveness: the lock file's PID must still be a live process.
+#      If the daemon is dead, the map could be arbitrarily stale.
+#   2) Shell PID liveness: the recorded shell PID must still be a live
+#      process. If it's dead, macOS may have recycled the PTY device
+#      number to an unrelated terminal and writing there would land OSC
+#      bytes in the wrong place.
+#
+# Echoes the TTY path on success; returns non-zero on miss/failure so
+# _notify_target falls through to the next mechanism.
+_session_map_lookup() {
+	local map="${ITERM_NOTIFS_SESSION_MAP:-$HOME/.claude/run/iterm-notifs/sessions.txt}"
+	local lock="${ITERM_NOTIFS_LOCK:-$HOME/.claude/run/iterm2-claude-cycle.lock}"
+	local sid="${ITERM_SESSION_ID:-}"
+	[[ -z "$sid" || ! -r "$map" ]] && return 1
+
+	# Daemon liveness check. The lock file holds the daemon's PID on
+	# line 1 (written by acquire_singleton_lock in claude_cycle.py).
+	local daemon_pid
+	daemon_pid=$(head -1 "$lock" 2>/dev/null)
+	[[ -z "$daemon_pid" ]] && return 1
+	kill -0 "$daemon_pid" 2>/dev/null || return 1
+
+	# Look up the entry. Try the full ITERM_SESSION_ID first, then
+	# fall back to the UUID-only form (post-colon portion). iTerm2's
+	# Python API returns session_id as just the UUID, but be robust
+	# in case that changes.
+	local entry uuid="${sid#*:}"
+	entry=$(grep -F "${sid}=" "$map" 2>/dev/null | head -1)
+	[[ -z "$entry" ]] && entry=$(grep -F "${uuid}=" "$map" 2>/dev/null | head -1)
+	[[ -z "$entry" ]] && return 1
+
+	# Format: <key>=<tty>:<pid>
+	entry="${entry#*=}"
+	local tty="${entry%:*}"
+	local pid="${entry##*:}"
+	[[ -z "$tty" || -z "$pid" ]] && return 1
+
+	# PTY-recycling defense. If the recorded shell process is gone,
+	# macOS may have reassigned that /dev/ttysXXX to a different
+	# terminal and writing there would target the wrong session.
+	kill -0 "$pid" 2>/dev/null || return 1
+
+	printf '%s' "$tty"
+}
+
 _notify_target() {
 	# Test override (set by bats tests).
 	if [[ -n "${ITERM_NOTIFS_TTY:-}" ]]; then
 		printf '%s' "$ITERM_NOTIFS_TTY"
 		return
 	fi
-	# Required: user exports this in their shell rc (see README).
-	# Without it, hooks have no way to find the right PTY device.
+	# Zero-config local-Mac path: daemon-maintained session map.
+	local mapped
+	if mapped=$(_session_map_lookup) && [[ -n "$mapped" ]]; then
+		printf '%s' "$mapped"
+		return
+	fi
+	# Manual fallback (required for remote SSH+tmux sessions where the
+	# daemon and map file are unreachable).
 	if [[ -n "${CLAUDE_TTY:-}" ]]; then
 		printf '%s' "$CLAUDE_TTY"
 		return

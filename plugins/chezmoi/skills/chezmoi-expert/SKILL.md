@@ -1,5 +1,5 @@
 ---
-name: Chezmoi Expert
+name: chezmoi-expert
 description: This skill should be used when the user asks to "edit dotfiles", "manage dotfiles", "add a config file", "chezmoi add", "chezmoi apply", "chezmoi diff", "chezmoi status", "sync configurations", "set up a new machine", "template a config file", "encrypt a config", "chezmoi encrypt", "manage secrets in dotfiles", mentions chezmoi commands or workflows, asks about dotfile management, wants to diff a plist file, or is working inside a chezmoi source directory. Provides comprehensive chezmoi dotfile management guidance.
 ---
 
